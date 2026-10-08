@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import {
   tracks,
   parseVideoId,
@@ -11,7 +11,18 @@ import {
   parseImport,
   importTracks,
 } from './tracks.js'
-import { initPlayer, toggle, stopAll, forget, currentId, status, ready, errorMessage } from './player.js'
+import {
+  initPlayer,
+  toggle,
+  stopAll,
+  forget,
+  cancelTap,
+  currentId,
+  status,
+  ready,
+  errorMessage,
+  needsTap,
+} from './player.js'
 import { canInstall, install } from './install.js'
 
 const link = ref('')
@@ -24,6 +35,16 @@ const dialogText = ref('')
 const isActive = computed(() => status.value === 'playing' || status.value === 'loading')
 
 onMounted(() => initPlayer('yt-player'))
+
+// Quando o aviso de "toque no vídeo" aparece, encaixa o player no espaço reservado.
+const tapSlot = ref(null)
+const ytBoxStyle = ref({})
+watch(needsTap, async (show) => {
+  if (!show) return (ytBoxStyle.value = {})
+  await nextTick()
+  const r = tapSlot.value?.getBoundingClientRect()
+  if (r) ytBoxStyle.value = { top: `${r.top}px`, left: `${r.left}px`, margin: 0 }
+})
 
 let toastTimer
 function notify(message) {
@@ -204,7 +225,18 @@ function doImport(mode) {
 
     <div v-if="toast" class="toast">{{ toast }}</div>
 
-    <!-- player escondido: só o áudio importa -->
-    <div class="yt-hidden" aria-hidden="true"><div id="yt-player"></div></div>
+    <!-- Android às vezes bloqueia o play: aí o player aparece para um toque nele -->
+    <div v-if="needsTap" class="overlay tap-overlay">
+      <div class="tap-card">
+        <p class="sheet-title">Toque no ▶ do vídeo para liberar o som</p>
+        <p class="tap-hint">O celular pede isso uma vez. Depois as músicas tocam direto.</p>
+        <div ref="tapSlot" class="tap-slot"></div>
+        <button class="ghost" @click="cancelTap">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Player invisível (mas dentro da tela, senão o Chrome do Android o congela).
+         Nunca mover este elemento no DOM: o iframe recarregaria. -->
+    <div :class="['yt-box', { visible: needsTap }]" :style="ytBoxStyle" aria-hidden="true"><div id="yt-player"></div></div>
   </div>
 </template>

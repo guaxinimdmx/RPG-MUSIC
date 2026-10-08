@@ -3,6 +3,7 @@ import { ref } from 'vue'
 const FADE_OUT_MS = 1500
 const FADE_IN_MS = 1500
 const MAX_VOLUME = 100
+const NEEDS_TAP_AFTER_MS = 3000
 
 /** ID da música selecionada (tocando ou pausada). */
 export const currentId = ref(null)
@@ -10,6 +11,8 @@ export const currentId = ref(null)
 export const status = ref('idle')
 export const ready = ref(false)
 export const errorMessage = ref('')
+/** true quando o play foi bloqueado e o usuário precisa tocar no player do YouTube. */
+export const needsTap = ref(false)
 
 let player = null
 // Música realmente carregada no player do YouTube.
@@ -37,7 +40,7 @@ export async function initPlayer(elementId) {
     height: 200,
     playerVars: {
       autoplay: 0,
-      controls: 0,
+      controls: 1,
       disablekb: 1,
       fs: 0,
       playsinline: 1,
@@ -57,6 +60,7 @@ export async function initPlayer(elementId) {
 function onStateChange(e) {
   const S = window.YT.PlayerState
   if (e.data === S.PLAYING) {
+    needsTap.value = false
     const waiters = playingWaiters
     playingWaiters = []
     waiters.forEach((resolve) => resolve(true))
@@ -77,18 +81,35 @@ function onError(e) {
   }
   errorMessage.value = messages[e.data] || `Erro do YouTube (${e.data}).`
   opToken++
+  needsTap.value = false
   status.value = 'idle'
   currentId.value = null
   loadedTrackId = null
   releaseWakeLock()
 }
 
-function waitForPlaying(token, timeout = 15000) {
+function waitForPlaying(token) {
+  // Se o navegador bloquear o play (Android exige um toque dentro do player),
+  // mostra o player para o usuário tocar nele uma vez.
+  const timer = setTimeout(() => {
+    if (token === opToken) needsTap.value = true
+  }, NEEDS_TAP_AFTER_MS)
   return new Promise((resolve) => {
     if (player.getPlayerState() === window.YT.PlayerState.PLAYING) return resolve(true)
     playingWaiters.push(resolve)
-    setTimeout(() => resolve(false), timeout)
-  }).then((ok) => ok && token === opToken)
+  }).then((ok) => {
+    clearTimeout(timer)
+    return ok && token === opToken
+  })
+}
+
+/** Usuário desistiu de liberar o som pelo player visível. */
+export function cancelTap() {
+  opToken++
+  needsTap.value = false
+  player?.pauseVideo()
+  status.value = currentId.value ? 'paused' : 'idle'
+  releaseWakeLock()
 }
 
 function fadeTo(target, ms, token) {
@@ -131,6 +152,7 @@ export async function toggle(track) {
   if (!ready.value) return
   errorMessage.value = ''
   const token = ++opToken
+  needsTap.value = false
 
   // Mesma música: alterna entre pausar e continuar.
   if (currentId.value === track.id && loadedTrackId === track.id) {
@@ -169,6 +191,7 @@ export async function stopAll() {
   if (!ready.value || !currentId.value) return
   if (status.value !== 'playing' && status.value !== 'loading') return
   const token = ++opToken
+  needsTap.value = false
   status.value = 'paused'
   releaseWakeLock()
   await fadeOutAndPause(token)
@@ -179,6 +202,7 @@ export function forget(trackId) {
   positions.delete(trackId)
   if (currentId.value !== trackId && loadedTrackId !== trackId) return
   opToken++
+  needsTap.value = false
   player?.stopVideo()
   currentId.value = null
   loadedTrackId = null

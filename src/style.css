@@ -348,14 +348,64 @@ button.danger {
   white-space: nowrap;
 }
 
-/* O iframe precisa existir e estar "visível" para o navegador não pausar o áudio. */
-.yt-hidden {
+/* O player fica dentro da tela e quase transparente: se estiver fora da tela ou
+   minúsculo, o Chrome do Android congela o iframe e o YouTube não toca. */
+.yt-box {
   position: fixed;
-  left: 0;
-  bottom: 0;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
+  left: 50%;
+  top: 50%;
+  width: 240px;
+  height: 180px;
+  margin: -90px 0 0 -120px;
   opacity: 0.01;
   pointer-events: none;
+  z-index: -1;
+}
+
+.yt-box iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 10px;
+}
+
+.yt-box.visible {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 40;
+}
+
+.tap-overlay {
+  align-items: center;
+  z-index: 30;
+}
+
+.tap-card {
+  width: calc(100% - 32px);
+  max-width: 360px;
+  background: var(--surface);
+  border-radius: 20px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.tap-card .sheet-title {
+  white-space: normal;
+  margin-bottom: 0;
+}
+
+.tap-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* espaço reservado onde o player aparece (centralizado na tela) */
+.tap-slot {
+  width: 240px;
+  height: 180px;
 }
