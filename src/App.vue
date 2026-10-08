@@ -32,7 +32,7 @@ const menuTrack = ref(null)
 const dialog = ref(null) // null | 'import' | 'export'
 const dialogText = ref('')
 
-const isActive = computed(() => status.value === 'playing' || status.value === 'loading')
+const hasCurrent = computed(() => currentId.value !== null)
 
 onMounted(() => initPlayer('yt-player'))
 
@@ -187,7 +187,7 @@ function doImport(mode) {
     </p>
 
     <div class="bottom">
-      <button class="stop" @click="stopAll" :disabled="!isActive">■ Parar tudo</button>
+      <button class="stop" @click="stopAll" :disabled="!hasCurrent">■ Parar tudo</button>
     </div>
 
     <!-- menu da música -->

@@ -186,15 +186,19 @@ export async function toggle(track) {
   await fadeTo(MAX_VOLUME, FADE_IN_MS, token)
 }
 
-/** Botão de stop: para tudo com fade. Tocar na música de novo continua de onde parou. */
+/** Botão de stop: para com fade e volta tudo para o começo. */
 export async function stopAll() {
   if (!ready.value || !currentId.value) return
-  if (status.value !== 'playing' && status.value !== 'loading') return
+  const wasPlaying = status.value === 'playing' || status.value === 'loading'
   const token = ++opToken
   needsTap.value = false
-  status.value = 'paused'
+  currentId.value = null
+  loadedTrackId = null
+  status.value = 'idle'
+  positions.clear()
   releaseWakeLock()
-  await fadeOutAndPause(token)
+  if (wasPlaying && !(await fadeTo(0, FADE_OUT_MS, token))) return
+  player.stopVideo()
 }
 
 /** Chamado quando a música selecionada é apagada da lista. */
